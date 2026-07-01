@@ -1,5 +1,5 @@
 import { StatusBadge, PriorityBadge } from './ui'
-import { formatDate, dueState } from '../lib/format'
+import { formatDue, dueState } from '../lib/format'
 import type { Task, Section } from '../lib/types'
 
 /** Ячейка «Отчёт»/«Примечание»: показывает наличие текста и число вложений */
@@ -86,7 +86,7 @@ export default function TaskTable({
                           : 'text-gray-600 dark:text-neutral-300'
                     }
                   >
-                    {formatDate(t.due_date)}
+                    {formatDue(t.due_date)}
                   </span>
                 </td>
                 <td className="px-4 py-3">

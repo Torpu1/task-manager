@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { PriorityBadge } from './ui'
-import { formatDate, dueState } from '../lib/format'
+import { formatDue, dueState } from '../lib/format'
 import { updateTask } from '../lib/api'
 import { STATUS_ORDER, STATUS_LABELS } from '../lib/types'
 import type { Task, TaskStatus } from '../lib/types'
@@ -83,7 +83,7 @@ export default function KanbanBoard({
                                 : 'text-gray-400'
                           }`}
                         >
-                          {formatDate(t.due_date)}
+                          {formatDue(t.due_date)}
                         </span>
                       )}
                     </div>

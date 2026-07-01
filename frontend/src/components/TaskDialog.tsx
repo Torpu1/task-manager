@@ -123,12 +123,19 @@ export default function TaskDialog({
           <div>
             <label className={label}>Название</label>
             <input
-              className={field}
+              className={`${field} ${!isNew ? 'cursor-not-allowed bg-gray-50 opacity-70 dark:bg-neutral-900' : ''}`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Что нужно сделать"
-              autoFocus
+              autoFocus={isNew}
+              readOnly={!isNew}
+              title={!isNew ? 'Название задачи нельзя изменить' : undefined}
             />
+            {!isNew && (
+              <p className="mt-1 text-xs text-gray-400">
+                🔒 Название закреплено — при внесении отчёта его изменить нельзя.
+              </p>
+            )}
           </div>
 
           <div>

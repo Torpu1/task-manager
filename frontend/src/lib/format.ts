@@ -6,6 +6,15 @@ export function formatDate(iso: string | null): string {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+/** Срок с датой и временем: «02 июл 2026, 15:30» */
+export function formatDue(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  return `${date}, ${time}`
+}
+
 export function formatDateTime(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString('ru-RU', {
