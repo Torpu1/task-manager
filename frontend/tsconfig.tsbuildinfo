@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/kanbanboard.tsx","./src/components/login.tsx","./src/components/taskdialog.tsx","./src/components/tasktable.tsx","./src/components/ui.tsx","./src/hooks/useauth.tsx","./src/hooks/usetheme.ts","./src/lib/api.ts","./src/lib/format.ts","./src/lib/supabase.ts","./src/lib/types.ts"],"version":"5.9.3"}
