@@ -83,7 +83,7 @@ export async function addComment(taskId: string, authorId: string, body: string)
 export async function listAttachments(taskId: string, section: Section): Promise<Attachment[]> {
   const { data, error } = await supabase
     .from('attachments')
-    .select('*')
+    .select('*, uploader:profiles!attachments_uploader_id_fkey(id, full_name, role)')
     .eq('task_id', taskId)
     .eq('section', section)
     .order('created_at')

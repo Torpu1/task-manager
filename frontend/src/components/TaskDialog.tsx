@@ -408,48 +408,42 @@ function Attachments({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 p-3 dark:border-neutral-800">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase text-gray-500 dark:text-neutral-400">
-          Вложения
-        </span>
-        <div className="ml-auto flex gap-2">
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            hidden
-            accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,audio/*,image/*"
-            onChange={(e) => onFiles(e.target.files)}
-          />
-          <Button variant="ghost" onClick={() => fileRef.current?.click()} disabled={busy || recording}>
-            📎 Файл
+    <div className="mt-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          hidden
+          accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,audio/*,image/*"
+          onChange={(e) => onFiles(e.target.files)}
+        />
+        <Button
+          variant="ghost"
+          className="!px-2.5 !py-1 !text-xs"
+          onClick={() => fileRef.current?.click()}
+          disabled={busy || recording}
+        >
+          📎 Файл
+        </Button>
+        {recording ? (
+          <Button variant="danger" className="!px-2.5 !py-1 !text-xs" onClick={stopRec}>
+            ⏹ Стоп · {mmss(recSecs)}
           </Button>
-          {recording ? (
-            <Button variant="danger" onClick={stopRec}>
-              ⏹ Стоп · {mmss(recSecs)}
-            </Button>
-          ) : (
-            <Button variant="ghost" onClick={startRec} disabled={busy}>
-              🎤 Голос
-            </Button>
-          )}
-        </div>
+        ) : (
+          <Button variant="ghost" className="!px-2.5 !py-1 !text-xs" onClick={startRec} disabled={busy}>
+            🎤 Голос
+          </Button>
+        )}
+        {recording && (
+          <span className="flex items-center gap-1 text-xs text-red-500">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" /> запись…
+          </span>
+        )}
+        <span className="ml-auto text-[11px] text-gray-400">до {MAX_FILE_MB} МБ</span>
       </div>
 
-      {recording && (
-        <p className="mb-2 flex items-center gap-2 text-xs text-red-500">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
-          Идёт запись… говорите, затем нажмите «Стоп».
-        </p>
-      )}
-
-      <p className="mb-2 text-[11px] text-gray-400">
-        Word, Excel, презентации, PDF, изображения, аудио. До {MAX_FILE_MB} МБ на файл.
-      </p>
-
       <div className="space-y-1.5">
-        {items.length === 0 && <p className="text-sm text-gray-400">Пока нет вложений.</p>}
         {items.map((a) => {
           const isAudio = a.kind === 'voice' || (a.mime_type ?? '').startsWith('audio')
           return (
@@ -475,6 +469,10 @@ function Attachments({
                   ✕
                 </button>
               </div>
+              <p className="mt-0.5 pl-6 text-[11px] text-gray-400">
+                {a.kind === 'voice' ? '🎤 записал' : '📎 загрузил'}: {a.uploader?.full_name ?? '—'} ·{' '}
+                {formatDateTime(a.created_at)}
+              </p>
               {isAudio &&
                 (urls[a.id] ? (
                   <audio controls src={urls[a.id]} className="mt-2 w-full" />

@@ -47,6 +47,7 @@ export interface Attachment {
   section: Section
   size_bytes: number | null
   created_at: string
+  uploader?: Profile | null
 }
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
