@@ -6,9 +6,10 @@ import TaskTable from './components/TaskTable'
 import KanbanBoard from './components/KanbanBoard'
 import TaskDialog from './components/TaskDialog'
 import { Button } from './components/ui'
+import { supabase } from './lib/supabase'
 import { listProfiles, listTasks } from './lib/api'
 import { myUpcoming, dueState } from './lib/format'
-import type { Profile, Task } from './lib/types'
+import type { Profile, Task, TaskStatus } from './lib/types'
 
 type Tab = 'table' | 'board'
 
@@ -22,6 +23,9 @@ export default function App() {
   const [dialogTask, setDialogTask] = useState<Task | 'new' | null>(null)
   const [bellOpen, setBellOpen] = useState(false)
   const [dataLoading, setDataLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [fAssignee, setFAssignee] = useState('all')
+  const [fStatus, setFStatus] = useState<'all' | TaskStatus | 'overdue'>('all')
 
   const refresh = useCallback(async () => {
     setDataLoading(true)
@@ -38,10 +42,48 @@ export default function App() {
     if (session) refresh()
   }, [session, refresh])
 
+  // Живое обновление: слушаем изменения в БД и обновляем список у всех
+  useEffect(() => {
+    if (!session) return
+    const channel = supabase
+      .channel('db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attachments' }, () => refresh())
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [session, refresh])
+
   const upcoming = useMemo(
     () => myUpcoming(tasks, session?.user.id),
     [tasks, session],
   )
+
+  // Счётчики для дашборда (по всем задачам)
+  const stats = useMemo(() => {
+    const s = { total: tasks.length, new: 0, in_progress: 0, done: 0, overdue: 0 }
+    for (const t of tasks) {
+      s[t.status]++
+      if (dueState(t) === 'overdue') s.overdue++
+    }
+    return s
+  }, [tasks])
+
+  // Отфильтрованный список для таблицы/доски
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return tasks.filter((t) => {
+      if (fStatus === 'overdue') {
+        if (dueState(t) !== 'overdue') return false
+      } else if (fStatus !== 'all' && t.status !== fStatus) return false
+      if (fAssignee === 'me') {
+        if (t.assignee_id !== session?.user.id) return false
+      } else if (fAssignee !== 'all' && t.assignee_id !== fAssignee) return false
+      if (q && !`${t.title} ${t.description ?? ''}`.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [tasks, search, fAssignee, fStatus, session])
 
   if (loading) {
     return (
@@ -161,24 +203,49 @@ export default function App() {
 
       {/* Контент */}
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {tab === 'table' ? 'Все задачи' : 'Доска задач'}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-neutral-400">
-              {dataLoading ? 'Обновление…' : `${tasks.length} задач`}
-            </p>
-          </div>
+        {/* Дашборд-счётчики (клик — фильтр) */}
+        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <StatCard label="Всего" value={stats.total} color="slate" active={fStatus === 'all'} onClick={() => setFStatus('all')} />
+          <StatCard label="Новые" value={stats.new} color="gray" active={fStatus === 'new'} onClick={() => setFStatus('new')} />
+          <StatCard label="В работе" value={stats.in_progress} color="blue" active={fStatus === 'in_progress'} onClick={() => setFStatus('in_progress')} />
+          <StatCard label="Готово" value={stats.done} color="green" active={fStatus === 'done'} onClick={() => setFStatus('done')} />
+          <StatCard label="Просрочено" value={stats.overdue} color="red" active={fStatus === 'overdue'} onClick={() => setFStatus('overdue')} />
+        </div>
+
+        {/* Панель фильтров */}
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="🔍 Поиск по названию…"
+            className="w-full flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+          <select
+            value={fAssignee}
+            onChange={(e) => setFAssignee(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <option value="all">Все ответственные</option>
+            <option value="me">Только мои</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name}
+              </option>
+            ))}
+          </select>
           <Button onClick={() => setDialogTask('new')}>
             <PlusIcon /> Новая задача
           </Button>
         </div>
 
+        <p className="mb-3 text-sm text-gray-500 dark:text-neutral-400">
+          {dataLoading ? 'Обновление…' : `Показано: ${filtered.length} из ${tasks.length}`}
+        </p>
+
         {tab === 'table' ? (
-          <TaskTable tasks={tasks} onOpen={setDialogTask} />
+          <TaskTable tasks={filtered} onOpen={setDialogTask} />
         ) : (
-          <KanbanBoard tasks={tasks} onOpen={setDialogTask} onChanged={refresh} />
+          <KanbanBoard tasks={filtered} onOpen={setDialogTask} onChanged={refresh} />
         )}
       </main>
 
@@ -191,6 +258,40 @@ export default function App() {
         />
       )}
     </div>
+  )
+}
+
+/* ---- Карточка-счётчик дашборда ---- */
+function StatCard({
+  label,
+  value,
+  color,
+  active,
+  onClick,
+}: {
+  label: string
+  value: number
+  color: 'slate' | 'gray' | 'blue' | 'green' | 'red'
+  active?: boolean
+  onClick?: () => void
+}) {
+  const val = {
+    slate: 'text-gray-900 dark:text-white',
+    gray: 'text-gray-600 dark:text-neutral-300',
+    blue: 'text-blue-600 dark:text-blue-400',
+    green: 'text-green-600 dark:text-green-400',
+    red: 'text-red-600 dark:text-red-400',
+  }[color]
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-xl bg-white p-3 text-left transition dark:bg-neutral-900 ${
+        active ? 'ring-2 ring-brand' : 'ring-1 ring-gray-200 hover:ring-brand/50 dark:ring-neutral-800'
+      }`}
+    >
+      <div className={`text-2xl font-bold ${val}`}>{value}</div>
+      <div className="text-xs text-gray-500 dark:text-neutral-400">{label}</div>
+    </button>
   )
 }
 
