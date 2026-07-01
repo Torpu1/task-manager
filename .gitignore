@@ -1,6 +1,9 @@
 # dependencies / build
 frontend/node_modules
 frontend/dist
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # env (ключи задаются в Vercel, локально — в frontend/.env)
 frontend/.env
