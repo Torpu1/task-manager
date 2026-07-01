@@ -272,18 +272,44 @@ function Attachments({
   section: Section
 }) {
   const [items, setItems] = useState<Attachment[]>([])
+  const [urls, setUrls] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // запись голоса
   const [recording, setRecording] = useState(false)
+  const [recSecs, setRecSecs] = useState(0)
   const recRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<number | null>(null)
 
-  const load = () => listAttachments(taskId, section).then(setItems).catch((e) => setErr(e.message))
+  const load = async () => {
+    try {
+      const list = await listAttachments(taskId, section)
+      setItems(list)
+      // подгружаем ссылки для аудио, чтобы играть прямо в окне
+      const audio = list.filter((a) => a.kind === 'voice' || (a.mime_type ?? '').startsWith('audio'))
+      const map: Record<string, string> = {}
+      await Promise.all(
+        audio.map(async (a) => {
+          try {
+            map[a.id] = await getAttachmentUrl(a.storage_path)
+          } catch {
+            /* пропускаем */
+          }
+        }),
+      )
+      setUrls(map)
+    } catch (e: any) {
+      setErr(e.message)
+    }
+  }
   useEffect(() => {
     load()
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current)
+    }
   }, [taskId, section])
 
   const onFiles = async (files: FileList | null) => {
@@ -309,21 +335,38 @@ function Attachments({
 
   const startRec = async () => {
     setErr(null)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErr('Браузер не поддерживает запись звука. Откройте сайт в Chrome по https://')
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const rec = new MediaRecorder(stream)
+      // формат под браузер: Chrome — webm, Safari — mp4
+      const mime = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : ''
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
       chunksRef.current = []
       rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data)
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        if (timerRef.current) window.clearInterval(timerRef.current)
+        const type = rec.mimeType || 'audio/webm'
+        const ext = type.includes('mp4') ? 'm4a' : 'webm'
+        const blob = new Blob(chunksRef.current, { type })
+        if (blob.size === 0) {
+          setErr('Запись пустая — попробуйте ещё раз и говорите дольше секунды.')
+          return
+        }
         setBusy(true)
         try {
-          const name = `voice-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.webm`
+          const name = `voice-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`
           await uploadAttachment(taskId, userId, blob, name, 'voice', section)
           await load()
         } catch (e: any) {
-          setErr(e.message)
+          setErr('Не удалось сохранить голосовое: ' + e.message)
         } finally {
           setBusy(false)
         }
@@ -331,8 +374,10 @@ function Attachments({
       recRef.current = rec
       rec.start()
       setRecording(true)
+      setRecSecs(0)
+      timerRef.current = window.setInterval(() => setRecSecs((s) => s + 1), 1000)
     } catch (e: any) {
-      setErr('Нет доступа к микрофону: ' + e.message)
+      setErr('Нет доступа к микрофону. Разрешите доступ в браузере. (' + e.message + ')')
     }
   }
 
@@ -341,7 +386,7 @@ function Attachments({
     setRecording(false)
   }
 
-  const open = async (att: Attachment) => {
+  const openFile = async (att: Attachment) => {
     try {
       const url = await getAttachmentUrl(att.storage_path)
       window.open(url, '_blank')
@@ -349,6 +394,8 @@ function Attachments({
       setErr(e.message)
     }
   }
+
+  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
   const del = async (att: Attachment) => {
     if (!confirm('Удалить вложение?')) return
@@ -375,12 +422,12 @@ function Attachments({
             accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,audio/*,image/*"
             onChange={(e) => onFiles(e.target.files)}
           />
-          <Button variant="ghost" onClick={() => fileRef.current?.click()} disabled={busy}>
+          <Button variant="ghost" onClick={() => fileRef.current?.click()} disabled={busy || recording}>
             📎 Файл
           </Button>
           {recording ? (
             <Button variant="danger" onClick={stopRec}>
-              ⏹ Стоп ({/* индикатор */}запись…)
+              ⏹ Стоп · {mmss(recSecs)}
             </Button>
           ) : (
             <Button variant="ghost" onClick={startRec} disabled={busy}>
@@ -390,29 +437,53 @@ function Attachments({
         </div>
       </div>
 
+      {recording && (
+        <p className="mb-2 flex items-center gap-2 text-xs text-red-500">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
+          Идёт запись… говорите, затем нажмите «Стоп».
+        </p>
+      )}
+
       <p className="mb-2 text-[11px] text-gray-400">
         Word, Excel, презентации, PDF, изображения, аудио. До {MAX_FILE_MB} МБ на файл.
       </p>
 
       <div className="space-y-1.5">
         {items.length === 0 && <p className="text-sm text-gray-400">Пока нет вложений.</p>}
-        {items.map((a) => (
-          <div
-            key={a.id}
-            className="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5 text-sm dark:bg-neutral-900"
-          >
-            <span>{a.kind === 'voice' ? '🎧' : '📄'}</span>
-            <button onClick={() => open(a)} className="flex-1 truncate text-left hover:text-brand hover:underline">
-              {a.file_name}
-            </button>
-            {a.size_bytes != null && (
-              <span className="text-xs text-gray-400">{(a.size_bytes / 1024 / 1024).toFixed(1)} МБ</span>
-            )}
-            <button onClick={() => del(a)} className="text-gray-400 hover:text-red-500" title="Удалить">
-              ✕
-            </button>
-          </div>
-        ))}
+        {items.map((a) => {
+          const isAudio = a.kind === 'voice' || (a.mime_type ?? '').startsWith('audio')
+          return (
+            <div key={a.id} className="rounded-lg bg-gray-50 px-2.5 py-1.5 text-sm dark:bg-neutral-900">
+              <div className="flex items-center gap-2">
+                <span>{a.kind === 'voice' ? '🎧' : '📄'}</span>
+                {isAudio ? (
+                  <span className="flex-1 truncate">{a.file_name}</span>
+                ) : (
+                  <button
+                    onClick={() => openFile(a)}
+                    className="flex-1 truncate text-left hover:text-brand hover:underline"
+                  >
+                    {a.file_name}
+                  </button>
+                )}
+                {a.size_bytes != null && (
+                  <span className="text-xs text-gray-400">
+                    {(a.size_bytes / 1024 / 1024).toFixed(1)} МБ
+                  </span>
+                )}
+                <button onClick={() => del(a)} className="text-gray-400 hover:text-red-500" title="Удалить">
+                  ✕
+                </button>
+              </div>
+              {isAudio &&
+                (urls[a.id] ? (
+                  <audio controls src={urls[a.id]} className="mt-2 w-full" />
+                ) : (
+                  <p className="mt-1 text-xs text-gray-400">Загрузка плеера…</p>
+                ))}
+            </div>
+          )
+        })}
       </div>
 
       {err && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{err}</p>}
