@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PriorityBadge } from './ui'
+import { PriorityBadge, ProgressBar } from './ui'
 import { formatDue, dueState } from '../lib/format'
 import { updateTask } from '../lib/api'
 import { STATUS_ORDER, STATUS_LABELS } from '../lib/types'
@@ -87,6 +87,7 @@ export default function KanbanBoard({
                         </span>
                       )}
                     </div>
+                    {t.progress > 0 && <ProgressBar value={t.progress} className="mt-2" />}
                     {t.assignee && (
                       <div className="mt-2 text-xs text-gray-500 dark:text-neutral-400">
                         👤 {t.assignee.full_name}

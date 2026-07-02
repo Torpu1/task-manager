@@ -26,6 +26,7 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [fAssignee, setFAssignee] = useState('all')
   const [fStatus, setFStatus] = useState<'all' | TaskStatus | 'overdue'>('all')
+  const [showArchived, setShowArchived] = useState(false)
 
   const refresh = useCallback(async () => {
     setDataLoading(true)
@@ -60,20 +61,25 @@ export default function App() {
     [tasks, session],
   )
 
-  // Счётчики для дашборда (по всем задачам)
+  // Активные (не в архиве) и счётчик архива
+  const active = useMemo(() => tasks.filter((t) => !t.archived), [tasks])
+  const archivedCount = tasks.length - active.length
+
+  // Счётчики для дашборда (по активным задачам)
   const stats = useMemo(() => {
-    const s = { total: tasks.length, new: 0, in_progress: 0, done: 0, overdue: 0 }
-    for (const t of tasks) {
+    const s = { total: active.length, new: 0, in_progress: 0, done: 0, overdue: 0 }
+    for (const t of active) {
       s[t.status]++
       if (dueState(t) === 'overdue') s.overdue++
     }
     return s
-  }, [tasks])
+  }, [active])
 
   // Отфильтрованный список для таблицы/доски
   const filtered = useMemo(() => {
+    const base = showArchived ? tasks.filter((t) => t.archived) : active
     const q = search.trim().toLowerCase()
-    return tasks.filter((t) => {
+    return base.filter((t) => {
       if (fStatus === 'overdue') {
         if (dueState(t) !== 'overdue') return false
       } else if (fStatus !== 'all' && t.status !== fStatus) return false
@@ -83,7 +89,7 @@ export default function App() {
       if (q && !`${t.title} ${t.description ?? ''}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [tasks, search, fAssignee, fStatus, session])
+  }, [tasks, active, showArchived, search, fAssignee, fStatus, session])
 
   if (loading) {
     return (
@@ -233,13 +239,24 @@ export default function App() {
               </option>
             ))}
           </select>
+          <Button
+            variant={showArchived ? 'primary' : 'ghost'}
+            onClick={() => setShowArchived((v) => !v)}
+            title="Показать/скрыть архив"
+          >
+            🗄 Архив{archivedCount ? ` (${archivedCount})` : ''}
+          </Button>
           <Button onClick={() => setDialogTask('new')}>
             <PlusIcon /> Новая задача
           </Button>
         </div>
 
         <p className="mb-3 text-sm text-gray-500 dark:text-neutral-400">
-          {dataLoading ? 'Обновление…' : `Показано: ${filtered.length} из ${tasks.length}`}
+          {dataLoading
+            ? 'Обновление…'
+            : showArchived
+              ? `🗄 Архив: ${filtered.length}`
+              : `Показано: ${filtered.length} из ${active.length}`}
         </p>
 
         {tab === 'table' ? (

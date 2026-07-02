@@ -33,6 +33,21 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   )
 }
 
+export function ProgressBar({ value, className = '' }: { value: number; className?: string }) {
+  const v = Math.max(0, Math.min(100, value))
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <div className="h-1.5 w-full max-w-[140px] overflow-hidden rounded-full bg-gray-200 dark:bg-neutral-800">
+        <div
+          className={`h-full rounded-full ${v >= 100 ? 'bg-green-500' : 'bg-brand'}`}
+          style={{ width: `${v}%` }}
+        />
+      </div>
+      <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-neutral-400">{v}%</span>
+    </div>
+  )
+}
+
 export function Button({
   children,
   variant = 'primary',

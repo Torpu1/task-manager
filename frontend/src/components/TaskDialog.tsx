@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { Button } from './ui'
+import { Button, ProgressBar } from './ui'
 import {
   createTask,
   updateTask,
@@ -13,7 +13,7 @@ import {
   deleteAttachment,
   type TaskInput,
 } from '../lib/api'
-import { formatDateTime } from '../lib/format'
+import { formatDateTime, dueState } from '../lib/format'
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_ORDER } from '../lib/types'
 import type { Task, Profile, Comment, Attachment, TaskStatus, Priority, Section } from '../lib/types'
 
@@ -49,8 +49,34 @@ export default function TaskDialog({
   const [due, setDue] = useState<string>(toLocalInput(task?.due_date ?? null))
   const [report, setReport] = useState(task?.report ?? '')
   const [note, setNote] = useState(task?.note ?? '')
+  const [progress, setProgress] = useState<number>(task?.progress ?? 0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Синхронизация статуса и прогресса
+  const applyStatus = (s: TaskStatus) => {
+    setStatus(s)
+    if (s === 'done') setProgress(100)
+    else if (s === 'new') setProgress(0)
+  }
+  const applyProgress = (p: number) => {
+    setProgress(p)
+    if (p >= 100) setStatus('done')
+    else if (p <= 0) setStatus('new')
+    else setStatus('in_progress')
+  }
+
+  const buildInput = (): TaskInput => ({
+    title: title.trim(),
+    description: description.trim() || null,
+    status,
+    priority,
+    assignee_id: assignee || null,
+    due_date: due ? new Date(due).toISOString() : null,
+    report: report.trim() || null,
+    note: note.trim() || null,
+    progress,
+  })
 
   const save = async () => {
     setError(null)
@@ -60,22 +86,27 @@ export default function TaskDialog({
     }
     setBusy(true)
     try {
-      const input: TaskInput = {
-        title: title.trim(),
-        description: description.trim() || null,
-        status,
-        priority,
-        assignee_id: assignee || null,
-        due_date: due ? new Date(due).toISOString() : null,
-        report: report.trim() || null,
-        note: note.trim() || null,
-      }
-      if (isNew) await createTask(input, userId)
-      else await updateTask(task!.id, input)
+      if (isNew) await createTask(buildInput(), userId)
+      else await updateTask(task!.id, buildInput())
       onSaved()
       onClose()
     } catch (e: any) {
       setError(e.message ?? 'Ошибка сохранения')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Быстрые действия (сохраняют текущую форму + патч)
+  const quick = async (patch: Partial<TaskInput>) => {
+    if (!task) return
+    setBusy(true)
+    try {
+      await updateTask(task.id, { ...buildInput(), ...patch })
+      onSaved()
+      onClose()
+    } catch (e: any) {
+      setError(e.message ?? 'Ошибка')
     } finally {
       setBusy(false)
     }
@@ -152,7 +183,7 @@ export default function TaskDialog({
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
               <label className={label}>Статус</label>
-              <select className={field} value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>
+              <select className={field} value={status} onChange={(e) => applyStatus(e.target.value as TaskStatus)}>
                 {STATUS_ORDER.map((s) => (
                   <option key={s} value={s}>
                     {STATUS_LABELS[s]}
@@ -191,6 +222,64 @@ export default function TaskDialog({
               />
             </div>
           </div>
+
+          {/* ---- Прогресс выполнения ---- */}
+          <div>
+            <label className={label}>Прогресс выполнения</label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex gap-1.5">
+                {[0, 25, 50, 75, 100].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => applyProgress(p)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                      progress === p
+                        ? 'bg-brand text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'
+                    }`}
+                  >
+                    {p}%
+                  </button>
+                ))}
+              </div>
+              <ProgressBar value={progress} className="flex-1" />
+            </div>
+            {progress >= 100 && (
+              <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                ✓ Выполнено на 100% — статус автоматически «Готово».
+              </p>
+            )}
+          </div>
+
+          {/* ---- Срок истёк: действия ---- */}
+          {task && dueState(task) === 'overdue' && status !== 'done' && (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3 dark:border-red-500/40 dark:bg-red-500/10">
+              <p className="font-medium text-red-700 dark:text-red-300">
+                ⏰ Срок истёк: {formatDateTime(task.due_date!)}
+              </p>
+              <p className="mb-3 mt-0.5 text-xs text-red-600/90 dark:text-red-300/80">
+                Продлите срок выше, закройте задачу как выполненную или уберите в архив.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="!px-3 !py-1.5 !text-xs"
+                  onClick={() => quick({ status: 'done', progress: 100 })}
+                  disabled={busy}
+                >
+                  ✅ Закрыть (выполнено)
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="!px-3 !py-1.5 !text-xs"
+                  onClick={() => quick({ archived: true })}
+                  disabled={busy}
+                >
+                  🗄 В архив
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* ---- Отчёт ---- */}
           <div className="rounded-lg border border-gray-200 p-3 dark:border-neutral-800">
@@ -241,9 +330,20 @@ export default function TaskDialog({
 
         <div className="flex items-center justify-between border-t border-gray-200 px-5 py-4 dark:border-neutral-800">
           {task ? (
-            <Button variant="danger" onClick={remove} disabled={busy}>
-              Удалить
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="danger" onClick={remove} disabled={busy}>
+                Удалить
+              </Button>
+              {task.archived ? (
+                <Button variant="ghost" onClick={() => quick({ archived: false })} disabled={busy}>
+                  ↩ Из архива
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={() => quick({ archived: true })} disabled={busy}>
+                  🗄 В архив
+                </Button>
+              )}
+            </div>
           ) : (
             <span />
           )}

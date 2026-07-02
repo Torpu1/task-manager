@@ -1,4 +1,4 @@
-import { StatusBadge, PriorityBadge } from './ui'
+import { StatusBadge, PriorityBadge, ProgressBar } from './ui'
 import { formatDue, dueState } from '../lib/format'
 import type { Task, Section } from '../lib/types'
 
@@ -66,6 +66,7 @@ export default function TaskTable({
                       {t.description}
                     </div>
                   )}
+                  {t.progress > 0 && <ProgressBar value={t.progress} className="mt-1.5" />}
                 </td>
                 <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">
                   {t.assignee?.full_name ?? <span className="text-gray-400">не назначен</span>}

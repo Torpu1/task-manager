@@ -33,6 +33,8 @@ export interface TaskInput {
   due_date: string | null
   report?: string | null
   note?: string | null
+  progress?: number
+  archived?: boolean
 }
 
 export async function createTask(input: TaskInput, creatorId: string): Promise<Task> {
