@@ -88,9 +88,9 @@ export default function KanbanBoard({
                       )}
                     </div>
                     {t.progress > 0 && <ProgressBar value={t.progress} className="mt-2" />}
-                    {t.assignee && (
+                    {t.assignees && t.assignees.length > 0 && (
                       <div className="mt-2 text-xs text-gray-500 dark:text-neutral-400">
-                        👤 {t.assignee.full_name}
+                        👤 {t.assignees.map((a) => a.full_name).join(', ')}
                       </div>
                     )}
                   </div>

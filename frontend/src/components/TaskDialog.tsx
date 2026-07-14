@@ -5,6 +5,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  setAssignees,
   listComments,
   addComment,
   listAttachments,
@@ -45,7 +46,11 @@ export default function TaskDialog({
   const [description, setDescription] = useState(task?.description ?? '')
   const [status, setStatus] = useState<TaskStatus>(task?.status ?? 'new')
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'normal')
-  const [assignee, setAssignee] = useState<string>(task?.assignee_id ?? '')
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(
+    task?.assignees?.map((a) => a.id) ?? [],
+  )
+  const toggleAssignee = (id: string) =>
+    setAssigneeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   const [due, setDue] = useState<string>(toLocalInput(task?.due_date ?? null))
   const [report, setReport] = useState(task?.report ?? '')
   const [note, setNote] = useState(task?.note ?? '')
@@ -71,7 +76,6 @@ export default function TaskDialog({
     description: description.trim() || null,
     status,
     priority,
-    assignee_id: assignee || null,
     due_date: due ? new Date(due).toISOString() : null,
     report: report.trim() || null,
     note: note.trim() || null,
@@ -86,8 +90,8 @@ export default function TaskDialog({
     }
     setBusy(true)
     try {
-      if (isNew) await createTask(buildInput(), userId)
-      else await updateTask(task!.id, buildInput())
+      const t = isNew ? await createTask(buildInput(), userId) : await updateTask(task!.id, buildInput())
+      await setAssignees(t.id, assigneeIds)
       onSaved()
       onClose()
     } catch (e: any) {
@@ -180,7 +184,7 @@ export default function TaskDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className={label}>Статус</label>
               <select className={field} value={status} onChange={(e) => applyStatus(e.target.value as TaskStatus)}>
@@ -202,17 +206,6 @@ export default function TaskDialog({
               </select>
             </div>
             <div>
-              <label className={label}>Ответственный</label>
-              <select className={field} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-                <option value="">— не назначен —</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className={label}>Срок</label>
               <input
                 type="datetime-local"
@@ -221,6 +214,36 @@ export default function TaskDialog({
                 onChange={(e) => setDue(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* ---- Ответственные (несколько) ---- */}
+          <div>
+            <label className={label}>Ответственные</label>
+            {profiles.length === 0 ? (
+              <p className="text-sm text-gray-400">Нет зарегистрированных участников.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {profiles.map((p) => {
+                  const on = assigneeIds.includes(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => toggleAssignee(p.id)}
+                      className={`rounded-full border px-3 py-1 text-sm transition ${
+                        on
+                          ? 'border-brand bg-brand text-white'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-brand/60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+                      }`}
+                    >
+                      {on ? '✓ ' : ''}
+                      {p.full_name}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            <p className="mt-1 text-[11px] text-gray-400">Нажмите на имена — можно выбрать нескольких.</p>
           </div>
 
           {/* ---- Прогресс выполнения ---- */}

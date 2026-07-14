@@ -69,7 +69,20 @@ export default function TaskTable({
                   {t.progress > 0 && <ProgressBar value={t.progress} className="mt-1.5" />}
                 </td>
                 <td className="px-4 py-3 text-gray-700 dark:text-neutral-300">
-                  {t.assignee?.full_name ?? <span className="text-gray-400">не назначен</span>}
+                  {t.assignees && t.assignees.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {t.assignees.map((a) => (
+                        <span
+                          key={a.id}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-neutral-800"
+                        >
+                          {a.full_name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">не назначен</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.status} />

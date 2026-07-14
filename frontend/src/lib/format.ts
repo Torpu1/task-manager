@@ -39,6 +39,8 @@ export function dueState(task: Task): 'overdue' | 'soon' | 'ok' | 'none' {
 export function myUpcoming(tasks: Task[], userId: string | undefined): Task[] {
   if (!userId) return []
   return tasks.filter(
-    (t) => t.assignee_id === userId && (dueState(t) === 'overdue' || dueState(t) === 'soon'),
+    (t) =>
+      (t.assignees ?? []).some((a) => a.id === userId) &&
+      (dueState(t) === 'overdue' || dueState(t) === 'soon'),
   )
 }

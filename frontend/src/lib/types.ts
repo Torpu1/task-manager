@@ -24,7 +24,7 @@ export interface Task {
   archived: boolean
   created_at: string
   updated_at: string
-  assignee?: Profile | null
+  assignees?: Profile[]
   creator?: Profile | null
   attachments?: { id: string; section: Section }[]
 }

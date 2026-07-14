@@ -13,7 +13,14 @@ export async function listProfiles(): Promise<Profile[]> {
 
 // ---------- Задачи ----------
 const TASK_SELECT =
-  '*, assignee:profiles!tasks_assignee_id_fkey(id, full_name, role), creator:profiles!tasks_creator_id_fkey(id, full_name, role), attachments(id, section)'
+  '*, creator:profiles!tasks_creator_id_fkey(id, full_name, role), assignees:task_assignees(profile:profiles(id, full_name, role)), attachments(id, section)'
+
+function mapTask(row: any): Task {
+  return {
+    ...row,
+    assignees: (row.assignees ?? []).map((a: any) => a.profile).filter(Boolean),
+  }
+}
 
 export async function listTasks(): Promise<Task[]> {
   const { data, error } = await supabase
@@ -21,7 +28,18 @@ export async function listTasks(): Promise<Task[]> {
     .select(TASK_SELECT)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data as unknown as Task[]) ?? []
+  return (data ?? []).map(mapTask)
+}
+
+/** Заменяет список ответственных задачи на переданный */
+export async function setAssignees(taskId: string, profileIds: string[]): Promise<void> {
+  const { error: delErr } = await supabase.from('task_assignees').delete().eq('task_id', taskId)
+  if (delErr) throw delErr
+  if (profileIds.length) {
+    const rows = profileIds.map((pid) => ({ task_id: taskId, profile_id: pid }))
+    const { error } = await supabase.from('task_assignees').insert(rows)
+    if (error) throw error
+  }
 }
 
 export interface TaskInput {
@@ -29,7 +47,6 @@ export interface TaskInput {
   description?: string | null
   status: TaskStatus
   priority: Task['priority']
-  assignee_id: string | null
   due_date: string | null
   report?: string | null
   note?: string | null
@@ -44,7 +61,7 @@ export async function createTask(input: TaskInput, creatorId: string): Promise<T
     .select(TASK_SELECT)
     .single()
   if (error) throw error
-  return data as unknown as Task
+  return mapTask(data)
 }
 
 export async function updateTask(id: string, patch: Partial<TaskInput>): Promise<Task> {
@@ -55,7 +72,7 @@ export async function updateTask(id: string, patch: Partial<TaskInput>): Promise
     .select(TASK_SELECT)
     .single()
   if (error) throw error
-  return data as unknown as Task
+  return mapTask(data)
 }
 
 export async function deleteTask(id: string): Promise<void> {

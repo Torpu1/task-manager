@@ -50,6 +50,7 @@ export default function App() {
       .channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attachments' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, () => refresh())
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
@@ -83,9 +84,10 @@ export default function App() {
       if (fStatus === 'overdue') {
         if (dueState(t) !== 'overdue') return false
       } else if (fStatus !== 'all' && t.status !== fStatus) return false
+      const ids = (t.assignees ?? []).map((a) => a.id)
       if (fAssignee === 'me') {
-        if (t.assignee_id !== session?.user.id) return false
-      } else if (fAssignee !== 'all' && t.assignee_id !== fAssignee) return false
+        if (!ids.includes(session?.user.id ?? '')) return false
+      } else if (fAssignee !== 'all' && !ids.includes(fAssignee)) return false
       if (q && !`${t.title} ${t.description ?? ''}`.toLowerCase().includes(q)) return false
       return true
     })
