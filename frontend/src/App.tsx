@@ -7,7 +7,7 @@ import KanbanBoard from './components/KanbanBoard'
 import TaskDialog from './components/TaskDialog'
 import { Button } from './components/ui'
 import { supabase } from './lib/supabase'
-import { listProfiles, listTasks } from './lib/api'
+import { listProfiles, listTasks, updateTask } from './lib/api'
 import { myUpcoming, dueState } from './lib/format'
 import type { Profile, Task, TaskStatus } from './lib/types'
 
@@ -57,6 +57,19 @@ export default function App() {
       supabase.removeChannel(channel)
     }
   }, [session, refresh])
+
+  // «Взять в работу»: перевод задачи в статус in_progress (автор фиксируется триггером)
+  const takeInWork = useCallback(
+    async (t: Task) => {
+      try {
+        await updateTask(t.id, { status: 'in_progress' })
+        refresh()
+      } catch (e) {
+        console.error(e)
+      }
+    },
+    [refresh],
+  )
 
   const upcoming = useMemo(
     () => myUpcoming(tasks, session?.user.id),
@@ -263,9 +276,20 @@ export default function App() {
         </p>
 
         {tab === 'table' ? (
-          <TaskTable tasks={filtered} onOpen={setDialogTask} />
+          <TaskTable
+            tasks={filtered}
+            onOpen={setDialogTask}
+            onTake={takeInWork}
+            userId={session.user.id}
+          />
         ) : (
-          <KanbanBoard tasks={filtered} onOpen={setDialogTask} onChanged={refresh} />
+          <KanbanBoard
+            tasks={filtered}
+            onOpen={setDialogTask}
+            onChanged={refresh}
+            onTake={takeInWork}
+            userId={session.user.id}
+          />
         )}
       </main>
 

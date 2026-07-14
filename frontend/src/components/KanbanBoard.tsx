@@ -9,11 +9,17 @@ export default function KanbanBoard({
   tasks,
   onOpen,
   onChanged,
+  onTake,
+  userId,
 }: {
   tasks: Task[]
   onOpen: (t: Task) => void
   onChanged: () => void
+  onTake: (t: Task) => void
+  userId?: string
 }) {
+  const canTake = (t: Task) =>
+    t.status === 'new' && (!t.assignees?.length || t.assignees.some((a) => a.id === userId))
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TaskStatus | null>(null)
 
@@ -97,6 +103,17 @@ export default function KanbanBoard({
                       <div className="mt-1 text-[11px] text-blue-600 dark:text-blue-400">
                         🔄 {STATUS_LABELS[t.status].toLowerCase()}: {t.statusActor.name}
                       </div>
+                    )}
+                    {canTake(t) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onTake(t)
+                        }}
+                        className="mt-2 w-full rounded-md bg-brand px-2 py-1 text-[11px] font-medium text-white hover:bg-brand-hover"
+                      >
+                        ▶ Взять в работу
+                      </button>
                     )}
                   </div>
                 )

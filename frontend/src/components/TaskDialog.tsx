@@ -253,6 +253,12 @@ export default function TaskDialog({
             </p>
           )}
 
+          {task && status === 'new' && (
+            <Button className="w-full sm:w-auto" onClick={() => quick({ status: 'in_progress' })} disabled={busy}>
+              ▶ Взять в работу
+            </Button>
+          )}
+
           {/* ---- Прогресс выполнения ---- */}
           <div>
             <label className={label}>Прогресс выполнения</label>

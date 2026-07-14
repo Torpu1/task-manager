@@ -24,10 +24,17 @@ function SectionCell({ task, section }: { task: Task; section: Section }) {
 export default function TaskTable({
   tasks,
   onOpen,
+  onTake,
+  userId,
 }: {
   tasks: Task[]
   onOpen: (t: Task) => void
+  onTake: (t: Task) => void
+  userId?: string
 }) {
+  const canTake = (t: Task) =>
+    t.status === 'new' &&
+    (!t.assignees?.length || t.assignees.some((a) => a.id === userId))
   if (tasks.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center text-sm text-gray-500 dark:border-neutral-800">
@@ -90,6 +97,17 @@ export default function TaskTable({
                     <div className="mt-1 text-[11px] text-blue-600 dark:text-blue-400" title={`перевёл ${t.statusActor.name}`}>
                       🔄 {t.statusActor.name}
                     </div>
+                  )}
+                  {canTake(t) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onTake(t)
+                      }}
+                      className="mt-1.5 block rounded-md bg-brand px-2 py-1 text-[11px] font-medium text-white hover:bg-brand-hover"
+                    >
+                      ▶ Взять в работу
+                    </button>
                   )}
                 </td>
                 <td className="px-4 py-3">
