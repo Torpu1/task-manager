@@ -61,6 +61,7 @@ export default function App() {
   // «Взять в работу»: перевод задачи в статус in_progress (автор фиксируется триггером)
   const takeInWork = useCallback(
     async (t: Task) => {
+      if (!window.confirm(`Взять задачу «${t.title}» в работу?`)) return
       try {
         await updateTask(t.id, { status: 'in_progress' })
         refresh()

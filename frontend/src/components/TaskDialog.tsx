@@ -254,7 +254,13 @@ export default function TaskDialog({
           )}
 
           {task && status === 'new' && (
-            <Button className="w-full sm:w-auto" onClick={() => quick({ status: 'in_progress' })} disabled={busy}>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => {
+                if (window.confirm('Взять эту задачу в работу?')) quick({ status: 'in_progress' })
+              }}
+              disabled={busy}
+            >
               ▶ Взять в работу
             </Button>
           )}
