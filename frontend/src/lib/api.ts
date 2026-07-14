@@ -13,12 +13,18 @@ export async function listProfiles(): Promise<Profile[]> {
 
 // ---------- Задачи ----------
 const TASK_SELECT =
-  '*, creator:profiles!tasks_creator_id_fkey(id, full_name, role), assignees:task_assignees(profile:profiles(id, full_name, role)), attachments(id, section)'
+  '*, creator:profiles!tasks_creator_id_fkey(id, full_name, role), assignees:task_assignees(profile:profiles(id, full_name, role)), attachments(id, section), status_log:task_status_log(actor:profiles(id, full_name), to_status, created_at)'
 
 function mapTask(row: any): Task {
+  // кто последним перевёл задачу в её ТЕКУЩИЙ статус
+  const logs = (row.status_log ?? [])
+    .filter((l: any) => l.to_status === row.status && l.actor)
+    .sort((a: any, b: any) => (a.created_at < b.created_at ? 1 : -1))
+  const last = logs[0]
   return {
     ...row,
     assignees: (row.assignees ?? []).map((a: any) => a.profile).filter(Boolean),
+    statusActor: last ? { name: last.actor.full_name, at: last.created_at } : null,
   }
 }
 

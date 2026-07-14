@@ -86,6 +86,11 @@ export default function TaskTable({
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.status} />
+                  {t.statusActor && t.status !== 'new' && (
+                    <div className="mt-1 text-[11px] text-blue-600 dark:text-blue-400" title={`перевёл ${t.statusActor.name}`}>
+                      🔄 {t.statusActor.name}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <PriorityBadge priority={t.priority} />

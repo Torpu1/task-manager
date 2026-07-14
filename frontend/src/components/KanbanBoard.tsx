@@ -93,6 +93,11 @@ export default function KanbanBoard({
                         👤 {t.assignees.map((a) => a.full_name).join(', ')}
                       </div>
                     )}
+                    {t.statusActor && t.status !== 'new' && (
+                      <div className="mt-1 text-[11px] text-blue-600 dark:text-blue-400">
+                        🔄 {STATUS_LABELS[t.status].toLowerCase()}: {t.statusActor.name}
+                      </div>
+                    )}
                   </div>
                 )
               })}

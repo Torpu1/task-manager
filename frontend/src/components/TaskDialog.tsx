@@ -246,6 +246,13 @@ export default function TaskDialog({
             <p className="mt-1 text-[11px] text-gray-400">Нажмите на имена — можно выбрать нескольких.</p>
           </div>
 
+          {task?.statusActor && (
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              🔄 Текущий статус установил: <b>{task.statusActor.name}</b> ·{' '}
+              {formatDateTime(task.statusActor.at)}
+            </p>
+          )}
+
           {/* ---- Прогресс выполнения ---- */}
           <div>
             <label className={label}>Прогресс выполнения</label>

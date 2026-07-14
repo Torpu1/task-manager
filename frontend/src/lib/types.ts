@@ -27,6 +27,7 @@ export interface Task {
   assignees?: Profile[]
   creator?: Profile | null
   attachments?: { id: string; section: Section }[]
+  statusActor?: { name: string; at: string } | null
 }
 
 export interface Comment {

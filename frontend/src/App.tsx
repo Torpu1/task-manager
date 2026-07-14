@@ -51,6 +51,7 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attachments' }, () => refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, () => refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_status_log' }, () => refresh())
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
