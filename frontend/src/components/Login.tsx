@@ -1,6 +1,21 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 import { Button } from './ui'
+
+// Понятные сообщения вместо технических английских ошибок
+function ruError(msg: string): string {
+  const m = msg.toLowerCase()
+  if (m.includes('not confirmed') || m.includes('not been confirmed'))
+    return 'Email не подтверждён. Найдите письмо от Supabase (проверьте папку «Спам») и нажмите ссылку. Или отправьте письмо заново кнопкой ниже.'
+  if (m.includes('invalid login')) return 'Неверный email или пароль.'
+  if (m.includes('already registered') || m.includes('already exists'))
+    return 'Этот email уже зарегистрирован — просто войдите (или сбросьте пароль).'
+  if (m.includes('password') && m.includes('6')) return 'Пароль должен быть не менее 6 символов.'
+  if (m.includes('rate limit') || m.includes('too many'))
+    return 'Слишком много попыток. Подождите минуту и попробуйте снова.'
+  return msg
+}
 
 export default function Login() {
   const { signIn, signUp } = useAuth()
@@ -11,11 +26,13 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [needsConfirm, setNeedsConfirm] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setInfo(null)
+    setNeedsConfirm(false)
     setBusy(true)
     try {
       if (mode === 'signin') {
@@ -23,11 +40,33 @@ export default function Login() {
       } else {
         if (!fullName.trim()) throw new Error('Укажите имя')
         await signUp(email, password, fullName.trim())
-        setInfo('Аккаунт создан. Если включено подтверждение почты — проверьте письмо, иначе войдите.')
+        setInfo('Аккаунт создан! На вашу почту отправлено письмо со ссылкой — перейдите по ней (проверьте «Спам»), затем войдите.')
+        setNeedsConfirm(true)
         setMode('signin')
       }
     } catch (err: any) {
-      setError(err.message ?? 'Ошибка')
+      const raw = err.message ?? 'Ошибка'
+      setError(ruError(raw))
+      if (raw.toLowerCase().includes('not confirmed')) setNeedsConfirm(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const resend = async () => {
+    if (!email) {
+      setError('Впишите email, на который регистрировались.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email })
+      if (error) throw error
+      setInfo('Письмо отправлено заново на ' + email + '. Проверьте почту и «Спам».')
+    } catch (err: any) {
+      setError(ruError(err.message ?? 'Не удалось отправить письмо'))
     } finally {
       setBusy(false)
     }
@@ -94,6 +133,17 @@ export default function Login() {
           <Button type="submit" disabled={busy} className="w-full">
             {busy ? 'Подождите…' : mode === 'signin' ? 'Войти' : 'Зарегистрироваться'}
           </Button>
+
+          {(needsConfirm || mode === 'signin') && (
+            <button
+              type="button"
+              onClick={resend}
+              disabled={busy}
+              className="w-full text-center text-xs text-gray-500 hover:text-brand hover:underline dark:text-neutral-400"
+            >
+              Не приходит письмо подтверждения? Отправить заново
+            </button>
+          )}
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-500 dark:text-neutral-400">
