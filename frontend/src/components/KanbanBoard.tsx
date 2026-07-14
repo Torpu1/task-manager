@@ -18,8 +18,8 @@ export default function KanbanBoard({
   onTake: (t: Task) => void
   userId?: string
 }) {
-  const canTake = (t: Task) =>
-    t.status === 'new' && (!t.assignees?.length || t.assignees.some((a) => a.id === userId))
+  void userId
+  const canTake = (t: Task) => t.status === 'new'
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TaskStatus | null>(null)
 

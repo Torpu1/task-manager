@@ -32,9 +32,8 @@ export default function TaskTable({
   onTake: (t: Task) => void
   userId?: string
 }) {
-  const canTake = (t: Task) =>
-    t.status === 'new' &&
-    (!t.assignees?.length || t.assignees.some((a) => a.id === userId))
+  void userId
+  const canTake = (t: Task) => t.status === 'new'
   if (tasks.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center text-sm text-gray-500 dark:border-neutral-800">
